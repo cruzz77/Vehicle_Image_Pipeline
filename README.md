@@ -299,6 +299,7 @@ curl http://localhost:3000/api/jobs/YOUR_JOB_ID/status
 
 ````bash
 curl http://localhost:3000/api/jobs/YOUR_JOB_ID/results
+````
 
 ### Response 200
 
@@ -465,4 +466,4 @@ This project used AI strategically — not blindly. Every suggestion was tested,
 
 ---
 
-Built by [Aditya Chopra](https://github.com/cruzz77)
+Built by [Aditya Chopra](https://github.com/YOUR_USERNAME)
