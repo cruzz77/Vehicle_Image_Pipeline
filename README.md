@@ -4,8 +4,25 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Docker](https://img.shields.io/badge/Docker-ready-blue)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green)
+![Deployed](https://img.shields.io/badge/Deployed-Render-purple)
 
 A backend system that accepts vehicle image uploads, processes them asynchronously, and detects potential image quality and validity issues.
+
+---
+
+# 🚀 Live Demo
+
+**Base URL:** `https://vehicle-image-pipeline.onrender.com`
+
+> ⚠️ Hosted on Render free tier — first request may take ~50 seconds to wake up after inactivity.
+
+| Endpoint | Description |
+|---|---|
+| `GET /` | Frontend dashboard |
+| `POST /api/upload` | Upload vehicle image |
+| `GET /api/jobs/:jobId/status` | Check processing status |
+| `GET /api/jobs/:jobId/results` | Fetch analysis results |
+| `GET /api/jobs` | List all jobs |
 
 ---
 
@@ -40,12 +57,14 @@ A backend system that accepts vehicle image uploads, processes them asynchronous
 | Runtime          | Node.js + TypeScript     |
 | Framework        | Express                  |
 | Database         | MongoDB Atlas + Mongoose |
-| Queue            | BullMQ + Redis           |
+| Queue            | BullMQ + Redis (Upstash) |
 | Image Processing | Sharp                    |
 | OCR              | Tesseract.js             |
 | EXIF Parsing     | Exifr                    |
+| Image Storage    | Cloudinary               |
 | Logging          | Pino                     |
 | Containerization | Docker + Docker Compose  |
+| Hosting          | Render                   |
 
 ---
 
@@ -57,18 +76,20 @@ Client
 ▼
 POST /api/upload  (Express + Multer)
 │  → Validate file type and size
-│  → Save image to /uploads
+│  → Upload image to Cloudinary
 │  → Create Job document in MongoDB (status: pending)
 │  → Push job to BullMQ queue
 │  → Return jobId immediately
 │
 ▼
 BullMQ Worker (runs in same process)
-│  → Picks up job from Redis queue
+│  → Picks up job from Redis queue (Upstash)
 │  → Updates Job status: processing
+│  → Downloads image from Cloudinary to temp file
 │  → Runs all image analysis checks in parallel
 │  → Saves Result document to MongoDB
 │  → Updates Job status: completed / failed
+│  → Cleans up temp file
 │
 ▼
 GET /api/jobs/:jobId/status   → Poll job status
@@ -97,11 +118,11 @@ Job marked as completed
 
 ## Queue Strategy
 
-BullMQ backed by Redis was chosen for the following reasons:
+BullMQ backed by Redis (Upstash) was chosen for the following reasons:
 
 * Built-in retry with exponential backoff (3 attempts)
 * Job state persistence across restarts
-* Simple local setup via Docker
+* Upstash provides managed Redis with TLS — no self-hosted Redis needed in production
 * Easy to scale to separate worker processes later
 
 Each job is retried up to 3 times with exponential backoff (3s → 6s → 12s) before being marked as failed.
@@ -217,7 +238,7 @@ GET /api/jobs/:jobId/results
     "jobId": "665f1a2b3c4d5e6f7a8b9c0d",
     "filename": "car.jpg",
     "status": "completed",
-    "summary": "4/5 checks passed. Issues: exif_check",
+    "summary": "3/5 checks passed. Issues: exif_check, number_plate_check",
     "checks": [
       {
         "checkName": "blur_detection",
@@ -245,9 +266,9 @@ GET /api/jobs/:jobId/results
       },
       {
         "checkName": "number_plate_check",
-        "passed": true,
-        "confidence": 0.85,
-        "details": "Valid Indian number plate detected: MH12AB1234"
+        "passed": false,
+        "confidence": 0.6,
+        "details": "Text found but no valid plate format detected."
       }
     ],
     "processedAt": "2024-06-05T10:00:05.000Z"
@@ -283,39 +304,19 @@ GET /api/jobs?page=1&limit=10
 ## Sample curl Commands
 
 ### Upload
-
 ```bash
-curl -X POST http://localhost:3000/api/upload \
+curl -X POST https://vehicle-image-pipeline.onrender.com/api/upload \
   -F "image=@/path/to/car.jpg"
 ```
 
 ### Get Status
-
 ```bash
-curl http://localhost:3000/api/jobs/YOUR_JOB_ID/status
+curl https://vehicle-image-pipeline.onrender.com/api/jobs/YOUR_JOB_ID/status
 ```
 
 ### Get Results
-
-````bash
-curl http://localhost:3000/api/jobs/YOUR_JOB_ID/results
-````
-
-### Response 200
-
-```json
-{
-  "success": true,
-  "data": {
-    "jobs": [...],
-    "pagination": {
-      "total": 25,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 3
-    }
-  }
-}
+```bash
+curl https://vehicle-image-pipeline.onrender.com/api/jobs/YOUR_JOB_ID/results
 ```
 
 ---
@@ -327,6 +328,7 @@ curl http://localhost:3000/api/jobs/YOUR_JOB_ID/results
 * Node.js 20+
 * Redis running locally
 * MongoDB Atlas URI
+* Cloudinary account
 
 ## Steps
 
@@ -340,7 +342,7 @@ npm install
 
 # 3. Setup environment
 cp .env.example .env
-# Fill in your MONGO_URI in .env
+# Fill in all values in .env
 
 # 4. Start Redis
 brew install redis
@@ -360,6 +362,7 @@ Server runs at `http://localhost:3000`
 
 * Docker and Docker Compose installed
 * MongoDB Atlas URI
+* Cloudinary account
 
 ```bash
 # 1. Clone the repo
@@ -368,7 +371,7 @@ cd Vehicle_Image_Pipeline
 
 # 2. Setup environment
 cp .env.example .env
-# Fill in your MONGO_URI in .env
+# Fill in all values in .env
 
 # 3. Start everything
 docker-compose up --build
@@ -389,19 +392,23 @@ Server runs at `http://localhost:3000`
 
 # Environment Variables
 
-| Variable     | Description                     | Default     |
-| ------------ | ------------------------------- | ----------- |
-| `PORT`       | Server port                     | `3000`      |
-| `MONGO_URI`  | MongoDB Atlas connection string | required    |
-| `REDIS_HOST` | Redis host                      | `localhost` |
-| `REDIS_PORT` | Redis port                      | `6379`      |
-| `UPLOAD_DIR` | Local image storage path        | `uploads`   |
+| Variable | Description | Default |
+|---|---|---|
+| `PORT` | Server port | `3000` |
+| `MONGO_URI` | MongoDB Atlas connection string | required |
+| `REDIS_HOST` | Redis / Upstash host | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `REDIS_PASSWORD` | Upstash Redis token | required in prod |
+| `UPLOAD_DIR` | Local image storage path | `uploads` |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name | required |
+| `CLOUDINARY_API_KEY` | Cloudinary API key | required |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret | required |
 
 ---
 
 # AI Usage Disclosure
 
-Claude (claude.ai) was used throughout this project as a pair programming assistant.
+Claude was used throughout this project as a pair programming assistant.
 
 ## How it was used
 
@@ -416,6 +423,7 @@ Claude (claude.ai) was used throughout this project as a pair programming assist
 * TypeScript compiler errors were resolved iteratively
 * Worker logs were verified to confirm end-to-end job processing
 * MongoDB Atlas was checked directly to confirm documents were created correctly
+* Deployed to Render and tested end-to-end with real vehicle images
 
 ## Honest assessment
 
@@ -427,32 +435,34 @@ This project used AI strategically — not blindly. Every suggestion was tested,
 
 ## Intentionally Simplified
 
-* **Local file storage** — images stored in `/uploads` folder. In production this would be S3 or GCS with signed URLs.
+* **Cloudinary storage** — used for persistence on Render free tier. In production would use S3/GCS with signed URLs for cost efficiency.
 * **In-process worker** — BullMQ worker runs in the same Node.js process as the API. In production these would be separate horizontally scalable services.
 * **No authentication** — no API keys or JWT. Production would require auth middleware.
 * **No rate limiting** — easy to add with `express-rate-limit`.
+* **Temp file cleanup** — images downloaded from Cloudinary to temp files for processing and deleted after. Could be optimized with streaming.
 
 ## With More Time
 
 * **Duplicate detection** — perceptual hashing (pHash) to detect re-uploaded identical images
 * **Confidence scoring improvements** — ML-based blur/brightness models instead of heuristics
 * **Webhook support** — notify clients when processing completes instead of polling
-* **Admin dashboard** — simple UI to browse jobs and results
 * **Automated tests** — Jest unit tests for each image check
 * **Cost optimization** — batch Tesseract processing, cache results for duplicate images
+* **EXIF webp support** — Cloudinary converts images to webp which breaks exifr; fix by preserving original format
 
 ## Scalability Concerns
 
 * Worker can be extracted to a separate process and scaled independently
-* Redis can be replaced with SQS for managed queue infrastructure
+* Redis (Upstash) scales managed — no infrastructure to maintain
 * MongoDB Atlas scales horizontally with sharding
-* `/uploads` would need shared storage (S3) if running multiple app instances
+* Cloudinary handles image CDN and storage scaling automatically
 
 ## Failure Handling Concerns
 
 * If the server crashes mid-processing, BullMQ will retry the job on restart due to Redis persistence
 * Failed jobs are kept in the queue for inspection
 * `failureReason` is stored on the Job document for debugging
+* Temp files are cleaned up in a `finally` block to prevent disk leaks
 
 ---
 
