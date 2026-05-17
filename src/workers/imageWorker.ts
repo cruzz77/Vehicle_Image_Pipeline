@@ -23,10 +23,12 @@ export const startWorker = () => {
       logger.info({ jobId, summary }, "Job completed");   // UPDATED
     },
     {
-      connection: {
-        host: ENV.REDIS_HOST,
-        port: ENV.REDIS_PORT,
-      },
+    connection: {
+      host: ENV.REDIS_HOST,
+      port: ENV.REDIS_PORT,
+      password: ENV.REDIS_PASSWORD,
+      tls: {},                        
+    },
     }
   );
 

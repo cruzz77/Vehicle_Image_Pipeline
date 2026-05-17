@@ -6,5 +6,6 @@ export const ENV = {
   MONGO_URI: process.env.MONGO_URI || "mongodb://localhost:27017/vehicle_pipeline",
   REDIS_HOST: process.env.REDIS_HOST || "localhost",
   REDIS_PORT: parseInt(process.env.REDIS_PORT || "6379"),
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD || "",   // ADD THIS
   UPLOAD_DIR: process.env.UPLOAD_DIR || "uploads",
 };

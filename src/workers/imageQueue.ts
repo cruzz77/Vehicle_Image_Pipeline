@@ -5,6 +5,8 @@ export const imageQueue = new Queue("image-processing", {
   connection: {
     host: ENV.REDIS_HOST,
     port: ENV.REDIS_PORT,
+    password: ENV.REDIS_PASSWORD,
+    tls: {},  
   },
   defaultJobOptions: {
     attempts: 3,                // retry up to 3 times on failure
