@@ -3,27 +3,24 @@ import { ENV } from "../config/env";
 import { Job } from "../db/models/Job.model";
 import { Result } from "../db/models/Result.model";
 import { runAnalysis } from "../services/analysisRunner";
+import { logger } from "../utils/logger";              // ADD THIS
 
 export const startWorker = () => {
   const worker = new Worker(
     "image-processing",
     async (job) => {
       const { jobId, filepath } = job.data;
-      console.log(`Processing job: ${jobId}`);
+      logger.info({ jobId }, "Processing job started");   // UPDATED
 
-      // Mark as processing
       await Job.findByIdAndUpdate(jobId, { status: "processing" });
 
-      // Run all analysis checks
       const { checks, summary } = await runAnalysis(filepath);
 
-      // Save results
       await Result.create({ jobId, checks, summary });
 
-      // Mark as completed
       await Job.findByIdAndUpdate(jobId, { status: "completed" });
 
-      console.log(`Job ${jobId} completed. Summary: ${summary}`);
+      logger.info({ jobId, summary }, "Job completed");   // UPDATED
     },
     {
       connection: {
@@ -34,7 +31,7 @@ export const startWorker = () => {
   );
 
   worker.on("failed", async (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err.message);
+    logger.error({ jobId: job?.data?.jobId, err: err.message }, "Job failed");  // UPDATED
     if (job?.data?.jobId) {
       await Job.findByIdAndUpdate(job.data.jobId, {
         status: "failed",
@@ -43,6 +40,6 @@ export const startWorker = () => {
     }
   });
 
-  console.log("Image processing worker started");
+  logger.info("Image processing worker started");         // UPDATED
   return worker;
 };
