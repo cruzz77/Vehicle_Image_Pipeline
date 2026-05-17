@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vehicle Image Pipeline</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0f0f0f;
+        color: #e0e0e0;
+        min-height: 100vh;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 780px;
+        margin: 0 auto;
+      }
+
+      header {
+        margin-bottom: 40px;
+      }
+
+      header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
+      header p {
+        margin-top: 6px;
+        font-size: 14px;
+        color: #888;
+      }
+
+      .card {
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        padding: 28px;
+        margin-bottom: 24px;
+      }
+
+      .card h2 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* Upload Zone */
+      .upload-zone {
+        border: 2px dashed #333;
+        border-radius: 10px;
+        padding: 48px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+
+      .upload-zone:hover,
+      .upload-zone.dragover {
+        border-color: #4f8ef7;
+        background: rgba(79, 142, 247, 0.05);
+      }
+
+      .upload-zone input {
+        display: none;
+      }
+
+      .upload-zone .icon {
+        font-size: 36px;
+        margin-bottom: 12px;
+      }
+
+      .upload-zone p {
+        font-size: 14px;
+        color: #888;
+      }
+
+      .upload-zone p span {
+        color: #4f8ef7;
+        cursor: pointer;
+      }
+
+      .upload-zone .file-name {
+        margin-top: 12px;
+        font-size: 13px;
+        color: #ccc;
+        display: none;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 10px 24px;
+        background: #4f8ef7;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-top: 20px;
+        width: 100%;
+      }
+
+      .btn:hover {
+        background: #3a7de8;
+      }
+
+      .btn:disabled {
+        background: #333;
+        color: #666;
+        cursor: not-allowed;
+      }
+
+      /* Status badge */
+      .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .badge.pending { background: #2a2000; color: #f5a623; }
+      .badge.processing { background: #001a2a; color: #4f8ef7; }
+      .badge.completed { background: #002a1a; color: #4caf7d; }
+      .badge.failed { background: #2a0000; color: #f74f4f; }
+
+      /* Job ID display */
+      .job-id-box {
+        background: #111;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: monospace;
+        font-size: 13px;
+        color: #4f8ef7;
+        word-break: break-all;
+        display: none;
+        margin-bottom: 16px;
+      }
+
+      /* Progress */
+      .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .status-row .label {
+        font-size: 13px;
+        color: #888;
+      }
+
+      /* Checks */
+      .checks-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .check-item {
+        background: #111;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+
+      .check-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+
+      .check-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #fff;
+        text-transform: replace;
+      }
+
+      .check-status {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .check-status.pass { color: #4caf7d; }
+      .check-status.fail { color: #f74f4f; }
+
+      .check-confidence {
+        margin-bottom: 6px;
+      }
+
+      .confidence-bar {
+        height: 4px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .confidence-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.4s ease;
+      }
+
+      .confidence-fill.pass { background: #4caf7d; }
+      .confidence-fill.fail { background: #f74f4f; }
+
+      .check-details {
+        font-size: 12px;
+        color: #888;
+        margin-top: 6px;
+      }
+
+      .confidence-label {
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 4px;
+      }
+
+      /* Summary */
+      .summary-box {
+        background: #111;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-size: 13px;
+        color: #ccc;
+        margin-bottom: 20px;
+        border: 1px solid #2a2a2a;
+        display: none;
+      }
+
+      /* Empty state */
+      .empty {
+        text-align: center;
+        padding: 32px;
+        color: #555;
+        font-size: 13px;
+      }
+
+      /* Recent Jobs */
+      .jobs-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .job-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #111;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+        font-size: 13px;
+      }
+
+      .job-row:hover {
+        border-color: #4f8ef7;
+      }
+
+      .job-row .job-name {
+        color: #ccc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 300px;
+      }
+
+      .job-row .job-time {
+        font-size: 11px;
+        color: #555;
+        margin-left: 12px;
+        white-space: nowrap;
+      }
+
+      .loader {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #333;
+        border-top-color: #4f8ef7;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .hidden { display: none; }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <h1>🚗 Vehicle Image Pipeline</h1>
+        <p>Upload a vehicle image to run quality and validity checks.</p>
+      </header>
+
+      <!-- Upload Card -->
+      <div class="card">
+        <h2>Upload Image</h2>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" />
+          <div class="icon">📷</div>
+          <p>Drag & drop or <span onclick="document.getElementById('fileInput').click()">browse</span></p>
+          <p style="margin-top:6px;font-size:12px;">JPEG, PNG, WEBP · Max 10MB</p>
+          <div class="file-name" id="fileName"></div>
+        </div>
+        <button class="btn" id="uploadBtn" disabled>Upload & Analyse</button>
+      </div>
+
+      <!-- Results Card -->
+      <div class="card" id="resultsCard">
+        <h2>Analysis Results</h2>
+
+        <div class="job-id-box" id="jobIdBox"></div>
+
+        <div class="status-row">
+          <span class="label">Status</span>
+          <span id="statusBadge" class="badge pending">—</span>
+        </div>
+
+        <div class="summary-box" id="summaryBox"></div>
+
+        <div class="checks-list" id="checksList">
+          <div class="empty">Upload an image to see results.</div>
+        </div>
+      </div>
+
+      <!-- Recent Jobs Card -->
+      <div class="card">
+        <h2>Recent Jobs</h2>
+        <div class="jobs-list" id="jobsList">
+          <div class="empty">No jobs yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API = "https://vehicle-image-pipeline.onrender.com/api";
+      let pollInterval = null;
+      let currentJobId = null;
+
+      // ── Upload Zone ──────────────────────────────────────────
+      const uploadZone = document.getElementById("uploadZone");
+      const fileInput = document.getElementById("fileInput");
+      const fileName = document.getElementById("fileName");
+      const uploadBtn = document.getElementById("uploadBtn");
+
+      uploadZone.addEventListener("click", () => fileInput.click());
+
+      uploadZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadZone.classList.add("dragover");
+      });
+
+      uploadZone.addEventListener("dragleave", () => {
+        uploadZone.classList.remove("dragover");
+      });
+
+      uploadZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove("dragover");
+        const file = e.dataTransfer.files[0];
+        if (file) setFile(file);
+      });
+
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files[0]) setFile(fileInput.files[0]);
+      });
+
+      function setFile(file) {
+        fileName.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileName.style.display = "block";
+        uploadBtn.disabled = false;
+        uploadBtn.dataset.file = file.name;
+        fileInput._file = file;
+      }
+
+      // ── Upload ───────────────────────────────────────────────
+      uploadBtn.addEventListener("click", async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<span class="loader"></span>Uploading...';
+
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+          const res = await fetch(`${API}/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+
+          if (!data.success) throw new Error(data.message);
+
+          currentJobId = data.data.jobId;
+          startPolling(currentJobId);
+          loadRecentJobs();
+
+          // Reset upload UI
+          uploadBtn.textContent = "Upload & Analyse";
+          uploadBtn.disabled = true;
+          fileName.style.display = "none";
+          fileInput.value = "";
+        } catch (err) {
+          alert("Upload failed: " + err.message);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "Upload & Analyse";
+        }
+      });
+
+      // ── Polling ──────────────────────────────────────────────
+      function startPolling(jobId) {
+        clearInterval(pollInterval);
+
+        // Show job ID
+        const jobIdBox = document.getElementById("jobIdBox");
+        jobIdBox.textContent = `Job ID: ${jobId}`;
+        jobIdBox.style.display = "block";
+
+        setStatus("pending");
+        document.getElementById("checksList").innerHTML =
+          '<div class="empty"><span class="loader"></span> Waiting for results...</div>';
+        document.getElementById("summaryBox").style.display = "none";
+
+        pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`${API}/jobs/${jobId}/status`);
+            const data = await res.json();
+            const status = data.data.status;
+            setStatus(status);
+
+            if (status === "completed") {
+              clearInterval(pollInterval);
+              fetchResults(jobId);
+              loadRecentJobs();
+            } else if (status === "failed") {
+              clearInterval(pollInterval);
+              document.getElementById("checksList").innerHTML =
+                `<div class="empty" style="color:#f74f4f;">
+                  ❌ Processing failed: ${data.data.failureReason || "Unknown error"}
+                </div>`;
+              loadRecentJobs();
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+          }
+        }, 2000);
+      }
+
+      // ── Fetch Results ────────────────────────────────────────
+      async function fetchResults(jobId) {
+        const res = await fetch(`${API}/jobs/${jobId}/results`);
+        const data = await res.json();
+        const { checks, summary } = data.data;
+
+        const summaryBox = document.getElementById("summaryBox");
+        summaryBox.textContent = summary;
+        summaryBox.style.display = "block";
+
+        const list = document.getElementById("checksList");
+        list.innerHTML = "";
+
+        checks.forEach((check) => {
+          const passed = check.passed;
+          const pct = Math.round(check.confidence * 100);
+          const label = check.checkName.replace(/_/g, " ");
+
+          list.innerHTML += `
+            <div class="check-item">
+              <div class="check-header">
+                <span class="check-name">${label}</span>
+                <span class="check-status ${passed ? "pass" : "fail"}">
+                  ${passed ? "✓ Pass" : "✗ Fail"}
+                </span>
+              </div>
+              <div class="confidence-label">Confidence: ${pct}%</div>
+              <div class="confidence-bar">
+                <div class="confidence-fill ${passed ? "pass" : "fail"}"
+                     style="width: ${pct}%"></div>
+              </div>
+              <div class="check-details">${check.details}</div>
+            </div>`;
+        });
+      }
+
+      // ── Status Badge ─────────────────────────────────────────
+      function setStatus(status) {
+        const badge = document.getElementById("statusBadge");
+        badge.className = `badge ${status}`;
+        badge.textContent = status;
+      }
+
+      // ── Recent Jobs ──────────────────────────────────────────
+      async function loadRecentJobs() {
+        try {
+          const res = await fetch(`${API}/jobs?page=1&limit=8`);
+          const data = await res.json();
+          const jobs = data.data.jobs;
+          const list = document.getElementById("jobsList");
+
+          if (!jobs.length) {
+            list.innerHTML = '<div class="empty">No jobs yet.</div>';
+            return;
+          }
+
+          list.innerHTML = jobs
+            .map((job) => {
+              const time = new Date(job.createdAt).toLocaleTimeString();
+              return `
+              <div class="job-row" onclick="loadJob('${job._id}')">
+                <span class="job-name">📄 ${job.originalName || job.filename}</span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span class="job-time">${time}</span>
+                  <span class="badge ${job.status}">${job.status}</span>
+                </div>
+              </div>`;
+            })
+            .join("");
+        } catch (err) {
+          console.error("Failed to load jobs:", err);
+        }
+      }
+
+      // ── Load existing job ────────────────────────────────────
+      function loadJob(jobId) {
+        currentJobId = jobId;
+        const jobIdBox = document.getElementById("jobIdBox");
+        jobIdBox.textContent = `Job ID: ${jobId}`;
+        jobIdBox.style.display = "block";
+        startPolling(jobId);
+      }
+
+      // ── Init ─────────────────────────────────────────────────
+      loadRecentJobs();
+    </script>
+  </body>
+</html>

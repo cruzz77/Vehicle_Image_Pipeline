@@ -7,10 +7,12 @@ import { startWorker } from "./workers/imageWorker";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
 import { requestLogger } from "./middlewares/requestLogger";
 import { logger } from "./utils/logger";
+import path from "path";
 
 const app = express();
 app.use(express.json());
-app.use(requestLogger);                  // log all requests
+app.use(requestLogger);          
+app.use(express.static(path.join(__dirname, "../public")));   
 
 // Routes
 app.use("/api", uploadRoutes);
