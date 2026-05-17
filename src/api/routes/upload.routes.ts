@@ -17,7 +17,7 @@ router.post("/upload", upload.single("image"), async (req: Request, res: Respons
       const job = await Job.create({
         filename: req.file.filename,
         originalName: req.file.originalname,
-        filepath: req.file.path,
+        filepath: req.file.path,        
         mimetype: req.file.mimetype,
         size: req.file.size,
         status: "pending",

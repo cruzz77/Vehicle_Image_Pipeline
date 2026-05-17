@@ -8,4 +8,7 @@ export const ENV = {
   REDIS_PORT: parseInt(process.env.REDIS_PORT || "6379"),
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || "",   // ADD THIS
   UPLOAD_DIR: process.env.UPLOAD_DIR || "uploads",
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
 };

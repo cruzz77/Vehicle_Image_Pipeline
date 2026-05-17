@@ -1,27 +1,18 @@
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { ENV } from "./env";
-import { Request } from "express";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import cloudinary from "./cloudinary";
 
-// Create uploads directory if it doesn't exist
-if (!fs.existsSync(ENV.UPLOAD_DIR)) {
-  fs.mkdirSync(ENV.UPLOAD_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, ENV.UPLOAD_DIR);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (_req, file) => ({
+    folder: "vehicle_pipeline",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    public_id: `${Date.now()}-${file.originalname.split(".")[0]}`,
+  }),
 });
 
 const fileFilter = (
-  _req: Request,
+  _req: Express.Request,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ) => {
@@ -36,7 +27,5 @@ const fileFilter = (
 export const upload = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
-  },
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
