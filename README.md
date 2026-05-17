@@ -466,4 +466,4 @@ This project used AI strategically — not blindly. Every suggestion was tested,
 
 ---
 
-Built by [Aditya Chopra](https://github.com/YOUR_USERNAME)
+Built by [Aditya Chopra](https://github.com/cruzz77)
